@@ -1,0 +1,11 @@
+fastapi==0.115.6
+uvicorn==0.34.0
+rfdetr
+torch
+torchvision
+opencv-python
+Pillow
+numpy
+easyocr
+langchain-anthropic==0.3.17
+langchain-core>=0.3.68
