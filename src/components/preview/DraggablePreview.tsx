@@ -59,8 +59,8 @@ function buildPreviewHtml(code: string): string {
     root.render(React.createElement(${componentName}));
   </script>
   <script>
-    // Wait for Babel to transpile and render, then set up drag
-    setTimeout(function() {
+    // Poll until Babel transpiles and React renders, then set up drag
+    (function() {
       let dragEl = null;
       let startX, startY, origX, origY;
       const changes = [];
@@ -80,6 +80,8 @@ function buildPreviewHtml(code: string): string {
         startY = e.clientY;
         origX = rect.left;
         origY = rect.top;
+        el._offsetX = parseFloat(el.style.left) || 0;
+        el._offsetY = parseFloat(el.style.top) || 0;
         el.style.position = 'relative';
         el.style.zIndex = '9999';
         el.style.cursor = 'grabbing';
@@ -90,8 +92,8 @@ function buildPreviewHtml(code: string): string {
         if (!dragEl) return;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
-        dragEl.style.left = dx + 'px';
-        dragEl.style.top = dy + 'px';
+        dragEl.style.left = (dragEl._offsetX + dx) + 'px';
+        dragEl.style.top = (dragEl._offsetY + dy) + 'px';
       });
 
       document.addEventListener('mouseup', function(e) {
@@ -109,26 +111,51 @@ function buildPreviewHtml(code: string): string {
           changes.push(change);
           window.parent.postMessage({ type: 'layout-changes', changes: changes.slice() }, '*');
         }
-        dragEl.style.cursor = '';
+        dragEl.style.cursor = 'grab';
         dragEl = null;
       });
 
-      // Mark elements as draggable
-      const root = document.getElementById('preview-root');
-      if (root) {
+      function markDraggable(el) {
+        el.setAttribute('data-draggable', 'true');
+        el.style.cursor = 'grab';
+      }
+
+      function setupDrag() {
+        const root = document.getElementById('preview-root');
+        if (!root || !root.firstElementChild) return false;
         const container = root.firstElementChild;
-        if (container) {
-          Array.from(container.children).forEach(function(child) {
-            child.setAttribute('data-draggable', 'true');
-            child.style.cursor = 'grab';
+
+        // If root component is a single wrapper div, go one level deeper
+        // to find the actual content sections
+        let target = container;
+        if (target.children.length === 1 && target.firstElementChild.children.length > 1) {
+          target = target.firstElementChild;
+        }
+
+        // Mark each direct child as draggable
+        if (target.children.length > 1) {
+          Array.from(target.children).forEach(markDraggable);
+        } else {
+          // Fallback: mark semantic elements anywhere
+          root.querySelectorAll('section, nav, header, footer, aside, article, form, main, div > div').forEach(function(el) {
+            // Only mark if it has meaningful content
+            if (el.children.length > 0 || (el.textContent || '').trim().length > 0) {
+              markDraggable(el);
+            }
           });
         }
-        root.querySelectorAll('section, nav, header, footer, aside, article, form, main').forEach(function(el) {
-          el.setAttribute('data-draggable', 'true');
-          el.style.cursor = 'grab';
-        });
+        return document.querySelectorAll('[data-draggable]').length > 0;
       }
-    }, 1000);
+
+      // Poll every 200ms for up to 10s until content renders
+      let attempts = 0;
+      const poll = setInterval(function() {
+        attempts++;
+        if (setupDrag() || attempts > 50) {
+          clearInterval(poll);
+        }
+      }, 200);
+    })();
   </script>
 </body>
 </html>`;

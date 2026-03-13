@@ -39,6 +39,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [layoutChanges, setLayoutChanges] = useState<LayoutChange[]>([]);
   const [showCode, setShowCode] = useState(false);
+  const [editingBoxes, setEditingBoxes] = useState(false);
 
   const handleUpload = useCallback(
     async (base64: string) => {
@@ -59,20 +60,23 @@ export default function App() {
 
   const handleGenerate = useCallback(() => {
     if (boxes.length === 0) return;
+    setEditingBoxes(false);
     generate(boxes, imageSize.width, imageSize.height, fullText);
   }, [boxes, imageSize, generate, fullText]);
 
   const handleRegenerate = useCallback(() => {
-    if (boxes.length === 0) return;
-    reset();
-    setLayoutChanges([]);
-    generate(boxes, imageSize.width, imageSize.height, fullText);
-  }, [boxes, imageSize, generate, fullText, reset]);
+    if (layoutChanges.length > 0) {
+      iterate("Regenerate the layout based on the element moves.", layoutChanges);
+      setLayoutChanges([]);
+    } else {
+      iterate("Regenerate and improve the component.", []);
+    }
+  }, [iterate, layoutChanges]);
 
   const handleBackToEditor = useCallback(() => {
-    reset();
+    setEditingBoxes(true);
     setLayoutChanges([]);
-  }, [reset]);
+  }, []);
 
   const handleIterate = useCallback(
     (feedback: string) => {
@@ -166,7 +170,7 @@ export default function App() {
               )}
             </div>
           </div>
-        ) : !code ? (
+        ) : !code || editingBoxes ? (
           /* Editor Stage */
           <div className="flex flex-1 flex-col overflow-auto p-6">
             <div className="mx-auto w-full max-w-4xl">
@@ -197,13 +201,23 @@ export default function App() {
                 <span className="text-sm text-zinc-500">
                   {boxes.length} element{boxes.length !== 1 ? "s" : ""} detected
                 </span>
-                <button
-                  onClick={handleGenerate}
-                  disabled={!hasKey || boxes.length === 0 || generating}
-                  className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
-                >
-                  {generating ? "Generating..." : "Generate Code"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {code && editingBoxes && (
+                    <button
+                      onClick={() => setEditingBoxes(false)}
+                      className="rounded-lg bg-zinc-800 px-6 py-2.5 text-sm font-medium text-zinc-400 hover:bg-zinc-700"
+                    >
+                      Back to Preview
+                    </button>
+                  )}
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!hasKey || boxes.length === 0 || generating}
+                    className="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                  >
+                    {generating ? "Generating..." : code ? "Regenerate Code" : "Generate Code"}
+                  </button>
+                </div>
               </div>
               {genError && (
                 <div className="mt-3 rounded-lg bg-red-900/20 px-4 py-3 text-sm text-red-300">
@@ -225,12 +239,27 @@ export default function App() {
                     <span className="text-xs text-zinc-500">
                       Drag elements to rearrange, then send feedback
                     </span>
-                    {layoutChanges.length > 0 && (
-                      <span className="rounded bg-violet-600/20 px-2 py-0.5 text-xs text-violet-400">
-                        {layoutChanges.length} move
-                        {layoutChanges.length !== 1 ? "s" : ""} pending
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {layoutChanges.length > 0 && (
+                        <span className="rounded bg-violet-600/20 px-2 py-0.5 text-xs text-violet-400">
+                          {layoutChanges.length} move
+                          {layoutChanges.length !== 1 ? "s" : ""} pending
+                        </span>
+                      )}
+                      <button
+                        onClick={handleBackToEditor}
+                        className="rounded bg-zinc-800 px-3 py-1 text-xs text-zinc-400 hover:bg-zinc-700"
+                      >
+                        Edit Boxes
+                      </button>
+                      <button
+                        onClick={handleRegenerate}
+                        disabled={generating}
+                        className="rounded bg-violet-600 px-3 py-1 text-xs text-white hover:bg-violet-500 disabled:opacity-50"
+                      >
+                        {generating ? "Regenerating..." : "Regenerate"}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <DraggablePreview
