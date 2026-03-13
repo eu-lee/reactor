@@ -2,7 +2,7 @@
 
 **Screenshot → Structured Annotations → React Code**
 
-Reactor converts UI screenshots into React + Tailwind components through a structured detection pipeline — no image is ever sent to the LLM.
+Reactor converts UI screenshots into React + Tailwind components through a structured detection pipeline — no image is ever sent to the LLM. Demo:
 
 [![Watch the video](https://img.youtube.com/vi/qRnOvF4dx54/maxresdefault.jpg)](https://youtu.be/qRnOvF4dx54)
 
