@@ -4,6 +4,8 @@
 
 Reactor converts UI screenshots into React + Tailwind components through a structured detection pipeline — no image is ever sent to the LLM.
 
+[![Watch the video](https://img.youtube.com/vi/qRnOvF4dx54/maxresdefault.jpg)](https://youtu.be/qRnOvF4dx54)
+
 ## Why Not Just Send the Screenshot to a VLLM?
 
 Vision-language models (GPT-4o, Claude with vision, etc.) can look at a screenshot and generate code directly. It sounds simpler, but it falls apart in practice:
