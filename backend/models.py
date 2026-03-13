@@ -53,8 +53,14 @@ class GenerateRequest(BaseModel):
 class LayoutChange(BaseModel):
     element_tag: str = Field(alias="elementTag")
     element_text: str = Field(alias="elementText")
-    from_pos: Dict[str, Any] = Field(alias="from")
-    to_pos: Dict[str, Any] = Field(alias="to")
+    element_classes: str = Field(default="", alias="elementClasses")
+    delta_x: int = Field(default=0, alias="deltaX")
+    delta_y: int = Field(default=0, alias="deltaY")
+    direction: str = ""
+    siblings_before: List[Dict[str, Any]] = Field(default_factory=list, alias="siblingsBefore")
+    siblings_after: List[Dict[str, Any]] = Field(default_factory=list, alias="siblingsAfter")
+    from_pos: Dict[str, Any] = Field(default_factory=dict, alias="from")
+    to_pos: Dict[str, Any] = Field(default_factory=dict, alias="to")
 
     class Config:
         populate_by_name = True

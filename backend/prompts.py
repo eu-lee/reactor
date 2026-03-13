@@ -133,21 +133,64 @@ Instructions:
 - Use justify-between, justify-center, items-center etc. to position elements within flex containers"""
 
 
+def _describe_move(c: Dict) -> str:
+    """Convert a layout change into a human-readable instruction."""
+    tag = c.get("element_tag", c.get("elementTag", "element"))
+    text = c.get("element_text", c.get("elementText", ""))
+    direction = c.get("direction", "")
+    dx = c.get("deltaX", 0)
+    dy = c.get("deltaY", 0)
+    classes = c.get("elementClasses", c.get("element_classes", ""))
+
+    # Identify the element
+    ident = f"<{tag}>"
+    if text:
+        ident = f'<{tag}> containing "{text[:50]}"'
+    if classes:
+        ident += f" (classes: {classes})"
+
+    # Describe the intent
+    parts = []
+    if direction == "up":
+        parts.append(f"moved UP by {abs(dy)}px — user wants this element higher / earlier in the layout")
+    elif direction == "down":
+        parts.append(f"moved DOWN by {abs(dy)}px — user wants this element lower / later in the layout")
+    elif direction == "left":
+        parts.append(f"moved LEFT by {abs(dx)}px — user wants this element further left")
+    elif direction == "right":
+        parts.append(f"moved RIGHT by {abs(dx)}px — user wants this element further right")
+    else:
+        parts.append(f"moved by ({dx}, {dy})px")
+
+    # Add sibling context if available
+    siblings_before = c.get("siblingsBefore", c.get("siblings_before", []))
+    siblings_after = c.get("siblingsAfter", c.get("siblings_after", []))
+    if siblings_before:
+        order_before = [s.get("text", s.get("tag", "?"))[:30] for s in siblings_before]
+        parts.append(f"Original element order: {' → '.join(order_before)}")
+
+    return f"- {ident}: {'; '.join(parts)}"
+
+
 def build_iteration_prompt(
     current_code: str, feedback: str, layout_changes: List[LayoutChange] = []
 ) -> str:
     parts = [f"Current code:\n```jsx\n{current_code}\n```"]
 
     if layout_changes:
-        moves = []
-        for c in layout_changes:
-            moves.append(
-                f"- <{c.element_tag}> \"{c.element_text}\" moved from ({c.from_pos.get('x', 0)}, {c.from_pos.get('y', 0)}) to ({c.to_pos.get('x', 0)}, {c.to_pos.get('y', 0)})"
-            )
+        # Convert to dicts for easier access (LayoutChange may have aliased fields)
+        raw_changes = [c.model_dump(by_alias=True) if hasattr(c, 'model_dump') else c for c in layout_changes]
+        moves = [_describe_move(c) for c in raw_changes]
         parts.append(
-            "The user physically dragged these elements in the preview:\n"
+            "The user physically dragged these elements in the live preview to indicate layout changes:\n"
             + "\n".join(moves)
-            + "\n\nAdjust the component layout to reflect these moves (reorder elements, change flex direction, adjust spacing, etc.)."
+            + "\n\n"
+            + "Instructions for applying layout changes:\n"
+            + "- Moving UP/DOWN means reorder elements (change the JSX order, not add margins)\n"
+            + "- Moving LEFT/RIGHT means change horizontal position (reorder in a flex-row, or change alignment)\n"
+            + "- Large moves (>100px) likely mean swapping sections entirely\n"
+            + "- Small moves (<50px) likely mean adjusting spacing/padding\n"
+            + "- Preserve all existing content and styling — only change layout/ordering"
         )
 
     if feedback:

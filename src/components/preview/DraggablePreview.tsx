@@ -1,11 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 
-interface LayoutChange {
-  elementTag: string;
-  elementText: string;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-}
+import type { LayoutChange } from "@/types";
 
 interface Props {
   code: string;
@@ -66,16 +61,36 @@ function buildPreviewHtml(code: string): string {
       const changes = [];
 
       function getDesc(el) {
+        // Try to identify by semantic tag, className hints, or role
         const tag = el.tagName.toLowerCase();
-        const text = (el.textContent || '').trim().slice(0, 30);
-        return { elementTag: tag, elementText: text };
+        // Get direct text (not deeply nested) for better identification
+        let text = '';
+        for (let i = 0; i < el.childNodes.length; i++) {
+          if (el.childNodes[i].nodeType === 3) text += el.childNodes[i].textContent;
+        }
+        if (!text.trim()) text = (el.textContent || '').trim();
+        text = text.trim().slice(0, 60);
+        // Extract className hints (first few tailwind-like classes)
+        const cls = (el.className || '').toString().split(' ').slice(0, 5).join(' ');
+        return { elementTag: tag, elementText: text, elementClasses: cls };
+      }
+
+      function getSiblings() {
+        // Get ordered list of draggable siblings for position context
+        const els = Array.from(document.querySelectorAll('[data-draggable]'));
+        return els.map(function(el, i) {
+          const desc = getDesc(el);
+          const rect = el.getBoundingClientRect();
+          return { index: i, tag: desc.elementTag, text: desc.elementText.slice(0, 40), y: Math.round(rect.top), x: Math.round(rect.left) };
+        });
       }
 
       document.addEventListener('mousedown', function(e) {
         const el = e.target.closest('[data-draggable]');
         if (!el) return;
         dragEl = el;
-        const rect = el.getBoundingClientRect();
+        dragEl._siblingsBefore = getSiblings();
+        var rect = el.getBoundingClientRect();
         startX = e.clientX;
         startY = e.clientY;
         origX = rect.left;
@@ -90,23 +105,30 @@ function buildPreviewHtml(code: string): string {
 
       document.addEventListener('mousemove', function(e) {
         if (!dragEl) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
         dragEl.style.left = (dragEl._offsetX + dx) + 'px';
         dragEl.style.top = (dragEl._offsetY + dy) + 'px';
       });
 
       document.addEventListener('mouseup', function(e) {
         if (!dragEl) return;
-        const rect = dragEl.getBoundingClientRect();
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
         if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-          const desc = getDesc(dragEl);
-          const change = {
-            ...desc,
+          var desc = getDesc(dragEl);
+          var siblingsAfter = getSiblings();
+          var change = {
+            elementTag: desc.elementTag,
+            elementText: desc.elementText,
+            elementClasses: desc.elementClasses,
+            deltaX: Math.round(dx),
+            deltaY: Math.round(dy),
+            direction: Math.abs(dy) > Math.abs(dx) ? (dy < 0 ? 'up' : 'down') : (dx < 0 ? 'left' : 'right'),
+            siblingsBefore: dragEl._siblingsBefore,
+            siblingsAfter: siblingsAfter,
             from: { x: Math.round(origX), y: Math.round(origY) },
-            to: { x: Math.round(rect.left), y: Math.round(rect.top) }
+            to: { x: Math.round(origX + dx), y: Math.round(origY + dy) }
           };
           changes.push(change);
           window.parent.postMessage({ type: 'layout-changes', changes: changes.slice() }, '*');
@@ -196,5 +218,3 @@ export default function DraggablePreview({ code, onLayoutChange }: Props) {
     />
   );
 }
-
-export type { LayoutChange };

@@ -56,7 +56,8 @@ export default function BoundingBoxEditor({
         });
         if (res.ok) {
           const data = await res.json();
-          onUpdateBox(id, { text: data.text, label: data.label });
+          // Only update text from OCR — preserve user-set labels
+          onUpdateBox(id, { text: data.text });
         }
       } catch {
         // Silently fail — keep existing text/label
@@ -68,14 +69,17 @@ export default function BoundingBoxEditor({
   const handleBoxUpdate = useCallback(
     (id: string, updates: Partial<Omit<BoxType, "id">>) => {
       onUpdateBox(id, updates);
-      // Find the box to get its full coords after update
-      const box = boxes.find((b) => b.id === id);
-      if (box) {
-        const newX = updates.x ?? box.x;
-        const newY = updates.y ?? box.y;
-        const newW = updates.width ?? box.width;
-        const newH = updates.height ?? box.height;
-        reOcr(id, newX, newY, newW, newH);
+      // Only re-OCR when the box was moved or resized, not on label/text changes
+      const posChanged = updates.x != null || updates.y != null || updates.width != null || updates.height != null;
+      if (posChanged) {
+        const box = boxes.find((b) => b.id === id);
+        if (box) {
+          const newX = updates.x ?? box.x;
+          const newY = updates.y ?? box.y;
+          const newW = updates.width ?? box.width;
+          const newH = updates.height ?? box.height;
+          reOcr(id, newX, newY, newW, newH);
+        }
       }
     },
     [boxes, onUpdateBox, reOcr]

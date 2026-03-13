@@ -25,6 +25,12 @@ export interface ChatMessage {
 export interface LayoutChange {
   elementTag: string;
   elementText: string;
+  elementClasses?: string;
+  deltaX: number;
+  deltaY: number;
+  direction: string;
+  siblingsBefore?: { index: number; tag: string; text: string; y: number; x: number }[];
+  siblingsAfter?: { index: number; tag: string; text: string; y: number; x: number }[];
   from: { x: number; y: number };
   to: { x: number; y: number };
 }
